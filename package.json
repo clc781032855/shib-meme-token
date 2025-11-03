@@ -1,0 +1,29 @@
+{
+  "name": "meme_token_project",
+  "version": "1.0.0",
+  "description": "这是一个从零开始学习和开发MEME币的项目。我们将逐步构建一个完整的MEME代币，包括智能合约、部署脚本和简单的前端界面。",
+  "main": "index.js",
+  "scripts": {
+    "test": "npx hardhat test",
+    "compile": "npx hardhat compile",
+    "deploy:local": "npx hardhat run scripts/deploy.js --network localhost"
+  },
+  "keywords": [
+    "ethereum",
+    "token",
+    "meme",
+    "erc20"
+  ],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@nomiclabs/hardhat-ethers": "^2.2.3",
+    "@nomiclabs/hardhat-waffle": "^2.0.6",
+    "@openzeppelin/contracts": "^5.4.0",
+    "chai": "^4.3.6",
+    "dotenv": "^17.2.3",
+    "ethereum-waffle": "^4.0.10",
+    "ethers": "^5.8.0",
+    "hardhat": "^2.19.5"
+  }
+}
