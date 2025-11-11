@@ -2,18 +2,18 @@ const { expect } = require("chai");
 const { ethers, upgrades } = require("hardhat");
 
 describe("MetaNodeStake合约测试", function() {
-  // 定义测试中需要用到的变量
-  let metaNodeStake;      // MetaNodeStake合约实例
-  let metaNodeToken;      // MetaNode代币合约实例
-  let stakingToken;       // 用于质押的ERC20代币实例
-  let owner;              // 部署合约的账户（管理员）
-  let addr1;              // 普通用户账户1
-  let addr2;              // 普通用户账户2
-  let initialSupply;      // 代币初始供应量
-  let ethPoolId;          // ETH质押池ID（应该是0）
-  let tokenPoolId;        // 代币质押池ID（应该是1）
+  // 测试变量声明
+  let metaNodeStake;
+  let metaNodeToken;
+  let stakingToken;
+  let owner;
+  let addr1;
+  let addr2;
+  let initialSupply;
+  let ethPoolId;
+  let tokenPoolId;
 
-  // 在所有测试之前运行的设置函数
+  // 测试前置准备
   before(async function() {
     // 获取签名者（测试账户）
     const [deployer, account1, account2] = await ethers.getSigners();
@@ -134,10 +134,10 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试管理员功能
+  // 管理员功能测试
   describe("管理员功能", function() {
-    it("应该允许管理员更新MetaNode代币地址", async function() {
-      // 部署一个新的MetaNode代币用于测试更新
+    it("验证管理员可更新MetaNode代币地址", async function() {
+      // 部署新代币用于测试
       const NewERC20Token = await ethers.getContractFactory("MemeToken");
       const newMetaNodeToken = await NewERC20Token.deploy(
         "NewMetaNode", 
@@ -147,20 +147,20 @@ describe("MetaNodeStake合约测试", function() {
       );
       await newMetaNodeToken.deployed();
       
-      // 管理员更新MetaNode代币地址
+      // 更新代币地址
       await metaNodeStake.setMetaNode(newMetaNodeToken.address);
       
-      // 验证更新成功
+      // 验证更新结果
       expect(await metaNodeStake.MetaNode()).to.equal(newMetaNodeToken.address);
     });
 
-    it("应该拒绝非管理员更新MetaNode代币地址", async function() {
+    it("验证非管理员无权限更新代币地址", async function() {
       await expect(
         metaNodeStake.connect(addr1).setMetaNode(stakingToken.address)
       ).to.be.reverted;
     });
 
-    it("应该允许管理员更新池权重", async function() {
+    it("验证管理员可更新池权重", async function() {
       const newWeight = 30;
       await metaNodeStake.setPoolWeight(tokenPoolId, newWeight, false);
       
@@ -168,31 +168,31 @@ describe("MetaNodeStake合约测试", function() {
       expect(poolInfo.poolWeight).to.equal(newWeight);
     });
 
-    it("应该拒绝非管理员更新池权重", async function() {
+    it("验证非管理员无权限更新池权重", async function() {
       await expect(
         metaNodeStake.connect(addr1).setPoolWeight(tokenPoolId, 40, false)
       ).to.be.reverted;
     });
   });
 
-  // 测试ETH存款功能
+  // ETH质押功能测试
   describe("ETH存款功能", function() {
-    it("应该允许用户存入ETH", async function() {
+    it("验证用户可正常质押ETH", async function() {
       const depositAmount = ethers.utils.parseEther("1");
       
-      // addr1存入1 ETH
+      // 用户存入1 ETH
       await metaNodeStake.connect(addr1).depositETH({ value: depositAmount });
       
-      // 验证质押数量正确
+      // 验证质押余额
       const stakingBalance = await metaNodeStake.stakingBalance(ethPoolId, addr1.address);
       expect(stakingBalance).to.equal(depositAmount);
       
-      // 验证池中的总质押数量正确
+      // 验证池总质押量
       const poolInfo = await metaNodeStake.pool(ethPoolId);
       expect(poolInfo.stTokenAmount).to.equal(depositAmount);
     });
 
-    it("应该拒绝低于最小存款额的ETH存款", async function() {
+    it("验证拒绝低于最小金额的ETH质押", async function() {
       const tooSmallAmount = ethers.utils.parseEther("0.005"); // 小于最小存款额0.01 ETH
       
       await expect(
@@ -201,9 +201,9 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试代币存款功能
+  // 代币质押功能测试
   describe("代币存款功能", function() {
-    it("应该允许用户存入质押代币", async function() {
+    it("验证用户可正常质押代币", async function() {
       const depositAmount = ethers.utils.parseEther("10");
       
       // addr1存入10个质押代币
@@ -218,7 +218,7 @@ describe("MetaNodeStake合约测试", function() {
       expect(poolInfo.stTokenAmount).to.equal(depositAmount);
     });
 
-    it("应该拒绝低于最小存款额的代币存款", async function() {
+    it("验证拒绝低于最小存款额的代币质押", async function() {
       const tooSmallAmount = ethers.utils.parseEther("0.5"); // 小于最小存款额1个代币
       
       await expect(
@@ -227,9 +227,9 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试区块推进和奖励计算
+  // 区块推进和奖励计算测试
   describe("区块推进和奖励计算", function() {
-    it("应该在区块推进后计算正确的待领取奖励", async function() {
+    it("验证区块推进后正确计算待领取奖励", async function() {
       // 先获取当前区块号
       let currentBlock = await ethers.provider.getBlockNumber();
       
@@ -252,9 +252,9 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试取消质押功能
+  // 取消质押功能测试
   describe("取消质押功能", function() {
-    it("应该允许用户取消质押ETH", async function() {
+    it("验证用户可正常取消质押ETH", async function() {
       const unstakeAmount = ethers.utils.parseEther("0.5");
       
       // 获取当前的质押余额
@@ -273,7 +273,7 @@ describe("MetaNodeStake合约测试", function() {
       expect(pendingWithdrawAmount).to.equal(0); // 还未到解锁时间，所以可提取金额为0
     });
 
-    it("应该拒绝取消质押超过余额的ETH", async function() {
+    it("验证拒绝取消质押超过余额的ETH", async function() {
       const currentBalance = await metaNodeStake.stakingBalance(ethPoolId, addr1.address);
       const tooLargeAmount = currentBalance.add(ethers.utils.parseEther("1"));
       
@@ -283,9 +283,9 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试提款功能
+  // 提款功能测试
   describe("提款功能", function() {
-    it("应该在解锁后允许用户提取ETH", async function() {
+    it("验证解锁后可成功提取ETH", async function() {
       // 先获取ETH池的锁定区块数
       const poolInfo = await metaNodeStake.pool(ethPoolId);
       const lockedBlocks = poolInfo.unstakeLockedBlocks;
@@ -315,7 +315,7 @@ describe("MetaNodeStake合约测试", function() {
       expect(newETHBalance).to.be.gt(initialETHBalance.sub(gasUsed)); // 确保余额扣除gas后还有增加
     });
 
-    it("应该允许管理员暂停提款功能", async function() {
+    it("验证管理员可暂停提款功能", async function() {
       // 管理员暂停提款
       await metaNodeStake.pauseWithdraw();
       
@@ -335,15 +335,15 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试奖励领取功能
+  // 奖励领取功能测试
   describe("奖励领取功能", function() {
-    it("应该允许用户领取MetaNode奖励", async function() {
+    it("验证用户可领取MetaNode奖励", async function() {
       // 为了简化测试，我们暂时跳过这个测试
       // 实际应用中，需要确保有足够的区块通过，并且MetaNode代币余额充足
       this.skip();
     });
 
-    it("应该允许管理员暂停奖励领取功能", async function() {
+    it("验证管理员可暂停奖励领取功能", async function() {
       // 管理员暂停领取奖励
       await metaNodeStake.pauseClaim();
       
@@ -363,9 +363,9 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 
-  // 测试池权重和奖励分配
+  // 池权重和奖励分配测试
   describe("池权重和奖励分配", function() {
-    it("权重大的池应该获得更多奖励", async function() {
+    it("验证权重大的池获得更多奖励", async function() {
       // 为了简化测试，我们暂时跳过这个测试
       // 实际应用中，需要更精确地控制和计算奖励分配
       this.skip();

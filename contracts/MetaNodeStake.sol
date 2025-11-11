@@ -21,25 +21,11 @@ contract MetaNodeStake is
     using Address for address;
     using Math for uint256;
 
-    // ************************************** 不变量 **************************************
-
     bytes32 public constant ADMIN_ROLE = keccak256("admin_role");
     bytes32 public constant UPGRADE_ROLE = keccak256("upgrade_role");
-
     uint256 public constant ETH_PID = 0;
     
-    // ************************************** 数据结构 **************************************
-    /*
-    基本上，在任何时间点，用户有权获得但尚未分配的MetaNodes数量为：
-
-    待分配MetaNode = (用户.stAmount * 池.accMetaNodePerST) - 用户.finishedMetaNode
-
-    当用户向池存入或提取质押代币时，会发生以下情况：
-    1. 池的`accMetaNodePerST`（和`lastRewardBlock`）会更新。
-    2. 用户收到发送到其地址的待分配MetaNode。
-    3. 用户的`stAmount`会更新。
-    4. 用户的`finishedMetaNode`会更新。
-    */
+    // 质押池结构
     struct Pool {
         // 质押代币地址
         address stTokenAddress;
@@ -75,30 +61,26 @@ contract MetaNodeStake is
         UnstakeRequest[] requests;
     }
 
-    // ************************************** 状态变量 **************************************
-    // MetaNodeStake开始的第一个区块
+    // 区块相关
     uint256 public startBlock;
-    // MetaNodeStake结束的最后一个区块
     uint256 public endBlock;
-    // 每个区块的MetaNode代币奖励
     uint256 public MetaNodePerBlock;
 
-    // 暂停提款功能
+    // 功能状态
     bool public withdrawPaused;
-    // 暂停领取奖励功能
     bool public claimPaused;
 
-    // MetaNode代币
+    // 代币
     IERC20 public MetaNode;
 
-    // 总池权重/所有池权重之和
+    // 池相关
     uint256 public totalPoolWeight;
     Pool[] public pool;
 
-    // 池ID => 用户地址 => 用户信息
+    // 用户数据映射
     mapping (uint256 => mapping (address => User)) public user;
 
-    // ************************************** 事件 **************************************
+    // 事件定义
 
     event SetMetaNode(IERC20 indexed MetaNode);
 
@@ -132,8 +114,7 @@ contract MetaNodeStake is
 
     event Claim(address indexed user, uint256 indexed poolId, uint256 MetaNodeReward);
 
-    // ************************************** 修饰器 **************************************
-
+    // 修饰器
     modifier checkPid(uint256 _pid) {
         require(_pid < pool.length, "invalid pid");
         _;
@@ -150,7 +131,7 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 设置MetaNode代币地址。部署时设置基本信息。
+     * 初始化合约，设置基本参数
      */
     function initialize(
         IERC20 _MetaNode,
@@ -182,97 +163,80 @@ contract MetaNodeStake is
 
     }
 
-    // ************************************** 管理员函数 **************************************
-
+    // 管理员函数
     /**
-     * @notice 设置MetaNode代币地址。只能由管理员调用
+     * 设置MetaNode代币地址
      */
     function setMetaNode(IERC20 _MetaNode) public onlyRole(ADMIN_ROLE) {
         MetaNode = _MetaNode;
-
         emit SetMetaNode(MetaNode);
     }
 
     /**
-     * @notice 暂停提款。只能由管理员调用。
+     * 暂停提款功能
      */
     function pauseWithdraw() public onlyRole(ADMIN_ROLE) {
         require(!withdrawPaused, "withdraw has been already paused");
-
         withdrawPaused = true;
-
         emit PauseWithdraw();
     }
 
     /**
-     * @notice 恢复提款。只能由管理员调用。
+     * 恢复提款功能
      */
     function unpauseWithdraw() public onlyRole(ADMIN_ROLE) {
         require(withdrawPaused, "withdraw has been already unpaused");
-
         withdrawPaused = false;
-
         emit UnpauseWithdraw();
     }
 
     /**
-     * @notice 暂停领取奖励。只能由管理员调用。
+     * 暂停领取奖励功能
      */
     function pauseClaim() public onlyRole(ADMIN_ROLE) {
         require(!claimPaused, "claim has been already paused");
-
         claimPaused = true;
-
         emit PauseClaim();
     }
 
     /**
-     * @notice 恢复领取奖励。只能由管理员调用。
+     * 恢复领取奖励功能
      */
     function unpauseClaim() public onlyRole(ADMIN_ROLE) {
         require(claimPaused, "claim has been already unpaused");
-
         claimPaused = false;
-
         emit UnpauseClaim();
     }
 
     /**
-     * @notice 更新质押开始区块。只能由管理员调用。
+     * 更新质押开始区块
      */
     function setStartBlock(uint256 _startBlock) public onlyRole(ADMIN_ROLE) {
         require(_startBlock <= endBlock, "start block must be smaller than end block");
-
         startBlock = _startBlock;
-
         emit SetStartBlock(_startBlock);
     }
 
     /**
-     * @notice 更新质押结束区块。只能由管理员调用。
+     * 更新质押结束区块
      */
     function setEndBlock(uint256 _endBlock) public onlyRole(ADMIN_ROLE) {
         require(startBlock <= _endBlock, "start block must be smaller than end block");
-
         endBlock = _endBlock;
-
         emit SetEndBlock(_endBlock);
     }
 
     /**
-     * @notice 更新每个区块的MetaNode奖励数量。只能由管理员调用。
+     * 更新每个区块的奖励数量
      */
     function setMetaNodePerBlock(uint256 _MetaNodePerBlock) public onlyRole(ADMIN_ROLE) {
         require(_MetaNodePerBlock > 0, "invalid parameter");
-
         MetaNodePerBlock = _MetaNodePerBlock;
-
         emit SetMetaNodePerBlock(_MetaNodePerBlock);
     }
 
     /**
-     * @notice 添加新的质押池。只能由管理员调用
-     * 不要重复添加相同的质押代币。如果重复添加，MetaNode奖励将会混乱
+     * 添加新的质押池（注意：不要重复添加相同的质押代币）
      */
     function addPool(address _stTokenAddress, uint256 _poolWeight, uint256 _minDepositAmount, uint256 _unstakeLockedBlocks,  bool _withUpdate) public onlyRole(ADMIN_ROLE) {
         // Default the first pool to be ETH pool, so the first pool must be added with stTokenAddress = address(0x0)
@@ -307,17 +271,16 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 更新指定池的信息（minDepositAmount和unstakeLockedBlocks）。只能由管理员调用。
+     * 更新指定池的基本信息
      */
     function updatePool(uint256 _pid, uint256 _minDepositAmount, uint256 _unstakeLockedBlocks) public onlyRole(ADMIN_ROLE) checkPid(_pid) {
         pool[_pid].minDepositAmount = _minDepositAmount;
         pool[_pid].unstakeLockedBlocks = _unstakeLockedBlocks;
-
         emit UpdatePoolInfo(_pid, _minDepositAmount, _unstakeLockedBlocks);
     }
 
     /**
-     * @notice 更新指定池的权重。只能由管理员调用。
+     * 更新指定池的权重
      */
     function setPoolWeight(uint256 _pid, uint256 _poolWeight, bool _withUpdate) public onlyRole(ADMIN_ROLE) checkPid(_pid) {
         require(_poolWeight > 0, "invalid pool weight");
@@ -328,24 +291,21 @@ contract MetaNodeStake is
 
         totalPoolWeight = totalPoolWeight - pool[_pid].poolWeight + _poolWeight;
         pool[_pid].poolWeight = _poolWeight;
-
         emit SetPoolWeight(_pid, _poolWeight, totalPoolWeight);
     }
 
-    // ************************************** 查询函数 **************************************
-
+    // 查询函数
     /**
-     * @notice 获取池的长度/数量
+     * 获取池的总数量
      */
     function poolLength() external view returns(uint256) {
         return pool.length;
     }
 
     /**
-     * @notice 返回给定_from到_to区块的奖励乘数。[_from, _to)
-     *
-     * @param _from    起始区块号（包含）
-     * @param _to      结束区块号（不包含）
+     * 计算区块范围内的奖励乘数
+     * @param _from 起始区块号（包含）
+     * @param _to 结束区块号（不包含）
      */
     function getMultiplier(uint256 _from, uint256 _to) public view returns(uint256 multiplier) {
         require(_from <= _to, "invalid block");
@@ -358,14 +318,14 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 获取用户在池中的待领取MetaNode数量
+     * 获取用户当前待领取奖励数量
      */
     function pendingMetaNode(uint256 _pid, address _user) external checkPid(_pid) view returns(uint256) {
         return pendingMetaNodeByBlockNumber(_pid, _user, block.number);
     }
 
     /**
-     * @notice 根据区块号获取用户在池中的待领取MetaNode数量
+     * 根据指定区块号计算用户待领取奖励
      */
     function pendingMetaNodeByBlockNumber(uint256 _pid, address _user, uint256 _blockNumber) public checkPid(_pid) view returns(uint256) {
         Pool storage pool_ = pool[_pid];
@@ -383,14 +343,14 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 获取用户的质押数量
+     * 获取用户质押数量
      */
     function stakingBalance(uint256 _pid, address _user) external checkPid(_pid) view returns(uint256) {
         return user[_pid][_user].stAmount;
     }
 
     /**
-     * @notice 获取提款金额信息，包括锁定的取消质押金额和已解锁的取消质押金额
+     * 获取用户提款金额信息
      */
     function withdrawAmount(uint256 _pid, address _user) public checkPid(_pid) view returns(uint256 requestAmount, uint256 pendingWithdrawAmount) {
         User storage user_ = user[_pid][_user];
@@ -403,10 +363,9 @@ contract MetaNodeStake is
         }
     }
 
-    // ************************************** 公共函数 **************************************
-
+    // 公共函数
     /**
-     * @notice 更新指定池的奖励变量以保持最新。
+     * 更新指定池的奖励状态
      */
     function updatePool(uint256 _pid) public checkPid(_pid) {
         Pool storage pool_ = pool[_pid];
@@ -435,12 +394,11 @@ contract MetaNodeStake is
         }
 
         pool_.lastRewardBlock = block.number;
-
         emit UpdatePool(_pid, pool_.lastRewardBlock, totalMetaNode);
     }
 
     /**
-     * @notice 更新所有池的奖励变量。注意gas消耗！
+     * 更新所有池的奖励状态
      */
     function massUpdatePools() public {
         uint256 length = pool.length;
@@ -450,7 +408,7 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 存入ETH以获得MetaNode奖励
+     * 存入ETH质押
      */
     function depositETH() public whenNotPaused() payable {
         Pool storage pool_ = pool[ETH_PID];
@@ -463,11 +421,9 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 存入质押代币以获得MetaNode奖励
-     * 存款前，用户需要批准本合约能够花费或转移他们的质押代币
-     *
-     * @param _pid       要存款的池ID
-     * @param _amount    要存款的质押代币数量
+     * 存入代币质押（需提前授权）
+     * @param _pid 质押池ID
+     * @param _amount 质押数量
      */
     function deposit(uint256 _pid, uint256 _amount) public whenNotPaused() checkPid(_pid) {
         require(_pid != 0, "deposit not support ETH staking");
@@ -482,10 +438,9 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 取消质押代币
-     *
-     * @param _pid       要提取的池ID
-     * @param _amount    要提取的质押代币数量
+     * 申请解除质押
+     * @param _pid 质押池ID
+     * @param _amount 解除质押数量
      */
     function unstake(uint256 _pid, uint256 _amount) public whenNotPaused() checkPid(_pid) whenNotWithdrawPaused() {
         Pool storage pool_ = pool[_pid];
@@ -516,9 +471,8 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 提取已解锁的取消质押金额
-     *
-     * @param _pid       要提取的池ID
+     * 提取已解锁的质押资产
+     * @param _pid 质押池ID
      */
     function withdraw(uint256 _pid) public whenNotPaused() checkPid(_pid) whenNotWithdrawPaused() {
         Pool storage pool_ = pool[_pid];
@@ -554,9 +508,8 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 领取MetaNode代币奖励
-     *
-     * @param _pid       要领取奖励的池ID
+     * 领取质押奖励
+     * @param _pid 质押池ID
      */
     function claim(uint256 _pid) public whenNotPaused() checkPid(_pid) whenNotClaimPaused() {
         Pool storage pool_ = pool[_pid];
@@ -579,10 +532,7 @@ contract MetaNodeStake is
     // ************************************** 内部函数 **************************************
 
     /**
-     * @notice 存入质押代币以获得MetaNode奖励
-     *
-     * @param _pid       要存款的池ID
-     * @param _amount    要存款的质押代币数量
+     * 存入质押代币以获得MetaNode奖励
      */
     function _deposit(uint256 _pid, uint256 _amount) internal {
         Pool storage pool_ = pool[_pid];
@@ -630,10 +580,7 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 安全的MetaNode转账函数，以防舍入误差导致池没有足够的MetaNodes
-     *
-     * @param _to        接收转账MetaNodes的地址
-     * @param _amount    要转账的MetaNode数量
+     * 安全的MetaNode转账函数
      */
     function _safeMetaNodeTransfer(address _to, uint256 _amount) internal {
         uint256 MetaNodeBal = MetaNode.balanceOf(address(this));
@@ -646,10 +593,7 @@ contract MetaNodeStake is
     }
 
     /**
-     * @notice 安全的ETH转账函数
-     *
-     * @param _to        接收转账ETH的地址
-     * @param _amount    要转账的ETH数量
+     * 安全的ETH转账函数
      */
     function _safeETHTransfer(address _to, uint256 _amount) internal {
         (bool success, bytes memory data) = address(_to).call{
