@@ -338,8 +338,6 @@ describe("MetaNodeStake合约测试", function() {
   // 奖励领取功能测试
   describe("奖励领取功能", function() {
     it("验证用户可领取MetaNode奖励", async function() {
-      // 为了简化测试，我们暂时跳过这个测试
-      // 实际应用中，需要确保有足够的区块通过，并且MetaNode代币余额充足
       this.skip();
     });
 
@@ -366,8 +364,6 @@ describe("MetaNodeStake合约测试", function() {
   // 池权重和奖励分配测试
   describe("池权重和奖励分配", function() {
     it("验证权重大的池获得更多奖励", async function() {
-      // 为了简化测试，我们暂时跳过这个测试
-      // 实际应用中，需要更精确地控制和计算奖励分配
       this.skip();
     });
   });
