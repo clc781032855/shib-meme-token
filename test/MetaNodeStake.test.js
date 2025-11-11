@@ -372,32 +372,3 @@ describe("MetaNodeStake合约测试", function() {
     });
   });
 });
-
-/*
-测试覆盖率说明：
-
-测试覆盖率是衡量测试代码对源代码覆盖程度的指标，通常以百分比表示。主要包括以下几个方面：
-
-1. 行覆盖率(Line Coverage)：测试执行了源代码中多少行代码
-2. 分支覆盖率(Branch Coverage)：测试执行了多少条件分支（if/else等）
-3. 函数覆盖率(Function Coverage)：测试调用了多少函数
-4. 语句覆盖率(Statement Coverage)：测试执行了多少语句
-
-在Hardhat项目中，您可以使用solidity-coverage插件来生成覆盖率报告。以下是如何使用的步骤：
-
-1. 安装插件：npm install --save-dev solidity-coverage
-2. 在hardhat.config.js中添加插件：require("solidity-coverage")
-3. 运行覆盖率测试：npx hardhat coverage
-
-运行后，您会在coverage目录中看到详细的HTML覆盖率报告，显示哪些代码行被测试覆盖了，哪些没有。
-
-本测试文件包含了对MetaNodeStake合约主要功能的测试，包括：
-- 部署和初始化
-- 管理员功能
-- ETH和代币的存款
-- 取消质押和提款
-- 奖励计算和领取
-- 池权重和奖励分配
-
-通过这些测试，我们应该能够达到70%以上的测试覆盖率。为了进一步提高覆盖率，您可以添加更多的边界条件测试和错误处理测试。
-*/
